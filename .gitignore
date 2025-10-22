@@ -1,7 +1,7 @@
 # Node modules
 node_modules/
 
-# Environment variables
+# Variables de entorno
 .env
 
 # Logs
@@ -9,13 +9,22 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS files
+# Archivos del sistema operativo
 .DS_Store
 Thumbs.db
 
-# Build output
+# Salidas de build
 dist/
 build/
 
-# VSCode settings
+# Config VSCode local (opcional)
 .vscode/
+
+# Cobertura de tests
+coverage/
+
+# Archivos temporales de SBOM u otras herramientas
+sbom/*.lock
+
+# Archivos generados por la extensión Snyk
+.github/instructions/snyk_rules.instructions.md
