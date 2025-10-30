@@ -26,26 +26,52 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 4. Construir la imagen Docker (sin hacer push todavía)
+      # 4. Generar versión semántica
+      - name: Generar versión
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            VERSION=$(cat package.json | jq -r .version)
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_main=true" >> $GITHUB_OUTPUT
+          else
+            VERSION="${{ github.sha }}"
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "is_main=false" >> $GITHUB_OUTPUT
+          fi
+
+      # 5. Construir la imagen Docker (sin hacer push todavía)
       - name: Build imagen Docker
         uses: docker/build-push-action@v5
         with:
           context: .
           push: false
           load: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 5. Escaneo de vulnerabilidades con Trivy
+      # 6. Determinar política de escaneo
+      - name: Determinar política de escaneo
+        id: scan_policy
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "exit_code=1" >> $GITHUB_OUTPUT
+            echo "policy=strict" >> $GITHUB_OUTPUT
+          else
+            echo "exit_code=0" >> $GITHUB_OUTPUT
+            echo "policy=permissive" >> $GITHUB_OUTPUT
+          fi
+
+      # 7. Escaneo de vulnerabilidades con Trivy
       - name: Escanear vulnerabilidades con Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
-          exit-code: "0" # No falla el build por vulnerabilidades (por ahora)
+          exit-code: ${{ steps.scan_policy.outputs.exit_code }}
 
       # 6. Subir resultados del escaneo a GitHub Security
       - name: Subir resultados de Trivy a GitHub Security
@@ -54,13 +80,13 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
-      # 7. Escaneo adicional con Anchore Grype (segunda opinión)
+      # 8. Escaneo adicional con Anchore Grype (segunda opinión)
       - name: Escanear con Anchore Grype
         uses: anchore/scan-action@v3
         id: scan
         with:
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
-          fail-build: false # No falla el build (por ahora)
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
+          fail-build: ${{ steps.version.outputs.is_main }}
           severity-cutoff: high
           output-format: sarif
 
@@ -79,9 +105,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
-            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.ref == 'refs/heads/main' && 'latest' || github.ref_name }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -89,24 +114,20 @@ jobs:
       - name: Generar reporte de resumen
         if: always()
         run: |
-          echo "## 🐳 Reporte de Build y Escaneo de Seguridad" >> $GITHUB_STEP_SUMMARY
+          echo "## Docker Build and Security Scan Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📦 Información de la Imagen" >> $GITHUB_STEP_SUMMARY
-          echo "- **Nombre:** \`${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tags:**" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`development\`" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "  - \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Repository:** \`${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tags:** \`${{ steps.version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔍 Escaneos Realizados" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Trivy (Aqua Security)" >> $GITHUB_STEP_SUMMARY
-          echo "- ✅ Anchore Grype" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trivy:** Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Anchore Grype:** Completed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Policy:** \`${{ steps.scan_policy.outputs.policy }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Details:** Security → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 Resultados" >> $GITHUB_STEP_SUMMARY
-          echo "Los resultados detallados están disponibles en:" >> $GITHUB_STEP_SUMMARY
-          echo "- **Security** → **Code scanning alerts**" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### ℹ️ Información del Commit" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Autor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author:** \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY

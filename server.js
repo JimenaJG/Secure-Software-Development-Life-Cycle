@@ -59,8 +59,17 @@ app.use(session({
 // App routes
 app.use(oidc.router);
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 app.get("/",  (req, res) => {
-  res.render("index");  
+  res.render("index");
 });
 
 app.get("/dashboard", requiresAuth() ,(req, res) => {  
