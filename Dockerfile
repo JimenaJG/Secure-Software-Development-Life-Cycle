@@ -22,7 +22,7 @@ RUN npm ci --only=production && \
 FROM node:${NODE_VERSION}-alpine
 
 # Metadata labels
-LABEL maintainer="josepablosg@example.com" \
+LABEL maintainer="suarezgomezjosepablo03@gmail.com" \
       version="1.0.0" \
       description="Okta OIDC Authentication Service" \
       org.opencontainers.image.source="https://github.com/JimenaJG/Secure-Software-Development-Life-Cycle" \
