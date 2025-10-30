@@ -1,0 +1,112 @@
+name: Docker Build, Scan and Push
+
+on:
+  push:
+    branches: [main, development, feature/add-docker-security-pipeline]
+  pull_request:
+    branches: [main, development]
+
+jobs:
+  build-and-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout del código
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      # 2. Configurar Docker Buildx (herramienta para builds eficientes)
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 3. Login en Docker Hub
+      - name: Login a Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 4. Construir la imagen Docker (sin hacer push todavía)
+      - name: Build imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          load: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 5. Escaneo de vulnerabilidades con Trivy
+      - name: Escanear vulnerabilidades con Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: "0" # No falla el build por vulnerabilidades (por ahora)
+
+      # 6. Subir resultados del escaneo a GitHub Security
+      - name: Subir resultados de Trivy a GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: "trivy-results.sarif"
+
+      # 7. Escaneo adicional con Anchore Grype (segunda opinión)
+      - name: Escanear con Anchore Grype
+        uses: anchore/scan-action@v3
+        id: scan
+        with:
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+          fail-build: false # No falla el build (por ahora)
+          severity-cutoff: high
+          output-format: sarif
+
+      # 8. Subir resultados de Anchore
+      - name: Subir resultados de Anchore a GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan.outputs.sarif }}
+
+      # 9. Push de la imagen a Docker Hub (solo si todo fue exitoso)
+      - name: Push imagen a Docker Hub
+        uses: docker/build-push-action@v5
+        if: success()
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:development
+            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # 10. Generar reporte de resumen
+      - name: Generar reporte de resumen
+        if: always()
+        run: |
+          echo "## 🐳 Reporte de Build y Escaneo de Seguridad" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📦 Información de la Imagen" >> $GITHUB_STEP_SUMMARY
+          echo "- **Nombre:** \`${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "  - \`development\`" >> $GITHUB_STEP_SUMMARY
+          echo "  - \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "  - \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🔍 Escaneos Realizados" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Trivy (Aqua Security)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Anchore Grype" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Resultados" >> $GITHUB_STEP_SUMMARY
+          echo "Los resultados detallados están disponibles en:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security** → **Code scanning alerts**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ℹ️ Información del Commit" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Autor:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
