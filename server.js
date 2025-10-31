@@ -73,6 +73,17 @@ app.use(
 // Rutas adicionales de Okta
 app.use(oidc.router);
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+app.get("/",  (req, res) => {
+  res.render("index");
 // Rutas propias
 app.get("/", (req, res) => {
   res.render("index"); // Renderiza views/index.html
