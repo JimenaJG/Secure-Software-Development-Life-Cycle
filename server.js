@@ -1,13 +1,12 @@
 "use strict";
-
 // Imports
 const express = require("express");
 const session = require("express-session");
 const ExpressOIDC = require("@okta/oidc-middleware").ExpressOIDC;
 const { auth, requiresAuth } = require("express-openid-connect");
 const path = require("path");
-const nunjucks = require("nunjucks");          // 👈 NUEVO motor
-const helmet = require("helmet");              // 👈 Seguridad (opcional recomendado)
+const nunjucks = require("nunjucks");          
+const helmet = require("helmet");              
 let app = express();
 
 // Environment variables
@@ -40,24 +39,24 @@ let oidc = new ExpressOIDC({
   scope: "openid profile",
 });
 
-// Seguridad básica (podés dejarlo así)
+// Seguridad básica
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // auth router: /login, /logout, /callback
 app.use(auth(config));
 
-// 🔧 Vistas con Nunjucks (reemplaza a swig/consolidate)
-const viewsPath = path.join(__dirname, "views"); // carpeta donde están tus .html
+//Vistas con Nunjucks
+const viewsPath = path.join(__dirname, "views");
 nunjucks.configure(viewsPath, {
-  autoescape: true, // protege XSS automáticamente
+  autoescape: true,
   express: app,
-  watch: false,     // poné true en desarrollo si querés recarga
-  noCache: false    // poné true en desarrollo si querés sin caché
+  watch: false,
+  noCache: false
 });
 app.set("view engine", "html");
 app.set("views", viewsPath);
 
-// Archivos estáticos (CSS/JS/imagenes)
+// Archivos estáticos
 app.use("/static", express.static("static"));
 
 // Sesiones
@@ -76,22 +75,19 @@ app.use(oidc.router);
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({
-    status: 'healthy',
+    status: "healthy",
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
   });
 });
 
-app.get("/",  (req, res) => {
-  res.render("index");
 // Rutas propias
 app.get("/", (req, res) => {
   res.render("index"); // Renderiza views/index.html
 });
 
 app.get("/dashboard", requiresAuth(), (req, res) => {
-  // Usar el perfil que ya decodifica express-openid-connect
-  const userInfo = (req.oidc && req.oidc.user) ? req.oidc.user : {};
+  const userInfo = req.oidc && req.oidc.user ? req.oidc.user : {};
   res.render("dashboard", { user: userInfo }); // views/dashboard.html
 });
 
@@ -99,6 +95,7 @@ app.get("/dashboard", requiresAuth(), (req, res) => {
 const { Issuer } = require("openid-client");
 Issuer.defaultHttpOptions = { timeout: 20000 };
 
+// Eventos de OIDC
 oidc.on("ready", () => {
   console.log("Server running on port: " + PORT);
   app.listen(parseInt(PORT, 10));
