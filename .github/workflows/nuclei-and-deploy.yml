@@ -1,0 +1,46 @@
+name: Nuclei scan & Deploy
+
+on:
+  push:
+    branches: [ "development", "main" ]
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Nuclei
+        uses: projectdiscovery/nuclei-action@main
+        with:
+          target: "http://${{ secrets.EC2_HOST }}" # IP desde GitHub Secrets
+          templates: "default"
+
+      - name: Upload nuclei report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-report
+          path: nuclei-report.txt
+
+  deploy:
+    needs: scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/development' || github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}      # <--- usa el secret EC2_HOST
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}    # <--- tu clave PEM copiada como texto
+          script: |
+            cd /home/ubuntu/Secure-Software-Development-Life-Cycle
+            git pull origin development
+            pnpm install --frozen-lockfile
+            pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
