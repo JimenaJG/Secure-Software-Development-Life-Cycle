@@ -26,11 +26,11 @@ jobs:
 
       # 2. Configurar Docker Buildx
       - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       # 3. Login en Docker Hub
       - name: Login a Docker Hub
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -52,7 +52,7 @@ jobs:
       # 5. Construir la imagen Docker
       - name: Build imagen Docker
         if: github.event_name != 'schedule'
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v5.4.0
+        uses: docker/build-push-action@v6 # v6.18.0
         with:
           context: .
           push: false
@@ -85,7 +85,7 @@ jobs:
 
       # 7. Escaneo con Trivy (SARIF para Security tab)
       - name: Escanear vulnerabilidades con Trivy
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9c9b3251 # v0.24.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
           format: "sarif"
@@ -97,7 +97,7 @@ jobs:
       # 7b. Escaneo con Trivy (tabla para reporte)
       - name: Generar reporte de vulnerabilidades
         if: always()
-        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9c9b3251 # v0.24.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
           format: "table"
@@ -116,7 +116,7 @@ jobs:
 
       # 9. Escaneo con Anchore Grype
       - name: Escanear con Anchore Grype
-        uses: anchore/scan-action@64a33b277ea7a1215a3c142735a1091341939ff5 # v3.8.0
+        uses: anchore/scan-action@1638637db639e0ade3258b51db49a9a137574c3e # v6.5.1
         id: scan
         with:
           image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
@@ -134,7 +134,7 @@ jobs:
 
       # 11a. Push imagen (development/feature branches)
       - name: Push imagen a Docker Hub (development)
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v5.4.0
+        uses: docker/build-push-action@v6 # v6.18.0
         if: success() && github.event_name == 'push' && github.ref != 'refs/heads/main'
         with:
           context: .
@@ -147,7 +147,7 @@ jobs:
 
       # 11b. Push imagen (main/production)
       - name: Push imagen a Docker Hub (production)
-        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v5.4.0
+        uses: docker/build-push-action@v6 # v6.18.0
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           context: .
