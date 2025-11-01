@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop, "feature/**" ]
+  pull_request:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install deps
+        run: npm ci
+
+  lint:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - name: ESLint (fail on warnings)
+        run: npm run lint
+        # Comentario: --max-warnings=0 en package.json hará fallar este job si hay warnings.
+
+  test:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - name: Unit tests (BDD) with coverage
+        run: npm run test:ci
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage
+
+  sast:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ======== Opción A: Snyk ========
+      - name: Install Snyk
+        run: npm i -g snyk
+      - name: Auth Snyk
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk auth "$SNYK_TOKEN"
+      - name: Snyk test (fail on >= medium)
+        run: snyk test --all-projects --severity-threshold=medium
+
+      # (Opcional) Subir resultados como SARIF al Code Scanning
+      - name: Generate SARIF
+        run: snyk test --sarif > snyk.sarif || true
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
+
+      # ======== Opción B: Semgrep (si no usas Snyk) ========
+      # - name: Setup Python
+      #   uses: actions/setup-python@v5
+      #   with: { python-version: '3.x' }
+      # - name: Install Semgrep
+      #   run: pip install semgrep
+      # - name: Semgrep scan (fail on findings)
+      #   run: semgrep --config p/ci --error
+
+  build:
+    needs: sast
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: "npm" }
+      - run: npm ci
+      - name: Build
+        run: npm run build
