@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.922.0",
     "@okta/oidc-middleware": "5.4.0",
     "dotenv": "^17.2.2",
     "express": "^4.21.2",
@@ -17,7 +18,8 @@
     "start": "node server.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "set-secrets": "node secrets/setSecrets.js"
   },
   "author": "UNA",
   "license": "MIT",
