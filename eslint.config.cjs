@@ -9,6 +9,7 @@ module.exports = [
     plugins: {
       security: pluginSecurity,
     },
+    files: ["**/*.js", "**/*.ts"],
     languageOptions: {
       ecmaVersion: "latest",
       sourceType: "commonjs",
