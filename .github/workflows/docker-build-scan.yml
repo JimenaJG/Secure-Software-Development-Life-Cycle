@@ -83,20 +83,8 @@ jobs:
             echo "policy=permissive" >> $GITHUB_OUTPUT
           fi
 
-      # 7. Escaneo con Trivy (SARIF para Security tab)
-      - name: Escanear vulnerabilidades con Trivy
-        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
-        with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
-          format: "sarif"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          exit-code: ${{ steps.scan_policy.outputs.exit_code }}
-          ignore-unfixed: true
-
-      # 7b. Escaneo con Trivy (tabla para reporte)
+      # 7. Escaneo con Trivy (tabla para reporte primero)
       - name: Generar reporte de vulnerabilidades
-        if: always()
         uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
@@ -104,6 +92,17 @@ jobs:
           output: "trivy-report.txt"
           severity: "CRITICAL,HIGH"
           exit-code: 0
+          ignore-unfixed: true
+
+      # 7b. Escaneo con Trivy (SARIF para Security tab - puede fallar)
+      - name: Escanear vulnerabilidades con Trivy (SARIF)
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
+          format: "sarif"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          exit-code: ${{ steps.scan_policy.outputs.exit_code }}
           ignore-unfixed: true
 
       # 8. Subir resultados de Trivy
