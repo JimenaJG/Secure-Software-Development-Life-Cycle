@@ -1,15 +1,26 @@
-// Comentario: si en server.js haces `const app = express(); module.exports = app;`
-// este test funcionará importando esa app.
-const { describe, it, expect } = require("@jest/globals");
+/* global jest */
+const { describe, it, expect, afterAll } = require("@jest/globals");
 const request = require("supertest");
-const app = require("../server"); // ajusta la ruta según exportes app
 
+process.env.NODE_ENV = "test";
 process.env.SECRETS = "local-test-secrets";
 
+const app = require("../server");
+
+jest.mock("@aws-sdk/client-secrets-manager", () => ({
+  SecretsManagerClient: jest.fn(),
+  GetSecretValueCommand: jest.fn(),
+}));
+
 describe("Health endpoint", () => {
-  it("Given server is running, When GET /health, Then returns 200", async () => {
+  it("GET /health should return 200", async () => {
     const res = await request(app).get("/health");
     expect(res.status).toBe(200);
-    // opcional: expect(res.body).toEqual({ ok: true });
+    expect(res.body).toHaveProperty("status", "healthy");
   });
+});
+
+afterAll(() => {
+  jest.clearAllMocks();
+  jest.restoreAllMocks();
 });

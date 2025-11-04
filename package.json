@@ -21,7 +21,7 @@
     "start": "node server.js",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
-    "test": "jest",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:ci": "jest --coverage --runInBand",
     "format": "prettier --write .",
     "set-secrets": "node secrets/setSecrets.js"
@@ -41,4 +41,5 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
+
 }
