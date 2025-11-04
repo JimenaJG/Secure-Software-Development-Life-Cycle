@@ -7,25 +7,31 @@ const { auth, requiresAuth } = require("express-openid-connect");
 const path = require("path");
 const nunjucks = require("nunjucks");          
 const helmet = require("helmet");              
+const { loadSecrets } = require("./secrets/getSecrets.js");
+const { getEnvVar } = require("./secrets/getEnvVar.js");
 let app = express();
 
-// Environment variables
-require("dotenv").config();
-const OKTA_ISSUER_URI    = process.env.OKTA_ISSUER_URI;
-const OKTA_CLIENT_ID     = process.env.OKTA_CLIENT_ID;
-const OKTA_CLIENT_SECRET = process.env.OKTA_CLIENT_SECRET;
-const REDIRECT_URI       = process.env.REDIRECT_URI;
-const PORT               = process.env.PORT || "3000";
-const SECRET             = process.env.SECRET;
+(async () => {
+  // Cargar secretos desde AWS Secrets Manager
+  await loadSecrets();
+
+  // Variables de entorno cargadas dinámicamente
+const OKTA_ISSUER_URI    = getEnvVar("OKTA_ISSUER_URI");
+const OKTA_CLIENT_ID     = getEnvVar("OKTA_CLIENT_ID");
+const OKTA_CLIENT_SECRET = getEnvVar("OKTA_CLIENT_SECRET");
+const REDIRECT_URI       = getEnvVar("REDIRECT_URI");
+const BASE_URL           = getEnvVar("BASE_URL");
+const SECRET             = getEnvVar("SECRET");
+const PORT               = getEnvVar("PORT") || "3000";
 
 // Config de Auth (express-openid-connect)
 const config = {
   authRequired: false,
   auth0Logout: true,
   secret: SECRET,
-  baseURL: process.env.BASE_URL,
-  clientID: process.env.OKTA_CLIENT_ID,
-  issuerBaseURL: process.env.OKTA_ISSUER_URI,
+  baseURL: BASE_URL,
+  clientID: OKTA_CLIENT_ID,
+  issuerBaseURL: OKTA_ISSUER_URI,
 };
 
 // Okta OIDC (tu config actual)
@@ -33,9 +39,9 @@ let oidc = new ExpressOIDC({
   issuer: OKTA_ISSUER_URI,
   client_id: OKTA_CLIENT_ID,
   client_secret: OKTA_CLIENT_SECRET,
-  appBaseUrl: process.env.BASE_URL,
+  appBaseUrl: BASE_URL,
   redirect_uri: REDIRECT_URI,
-  routes: { callback: { defaultRedirect: "http://localhost:3000/dashboard" } },
+  routes: { callback: { defaultRedirect: `${BASE_URL}/dashboard` } },
   scope: "openid profile",
 });
 
@@ -91,6 +97,17 @@ app.get("/dashboard", requiresAuth(), (req, res) => {
   res.render("dashboard", { user: userInfo }); // views/dashboard.html
 });
 
+//ruta de dashboard sin auth
+/*
+app.get("/dashboard", (req, res) => {
+  const fakeUser = {
+    email: "test@correo.com",
+    nickname: "usuario_prueba",
+  };
+  res.render("dashboard", { user: fakeUser });
+});
+*/
+
 // OpenID client tuning
 const { Issuer } = require("openid-client");
 Issuer.defaultHttpOptions = { timeout: 20000 };
@@ -104,3 +121,8 @@ oidc.on("ready", () => {
 oidc.on("error", (err) => {
   console.error(err);
 });
+
+console.log("🧪 REDIRECT_URI:", process.env.REDIRECT_URI);
+console.log("🧪 CLIENT_ID:", process.env.OKTA_CLIENT_ID);
+
+})();

@@ -5,6 +5,15 @@ on:
     branches: [main, development, feature/add-docker-security-pipeline]
   pull_request:
     branches: [main, development]
+  schedule:
+    # Re-escaneo semanal de la imagen de producción (todos los lunes a las 9 AM UTC)
+    - cron: '0 9 * * 1'
+  workflow_dispatch: # Permite ejecutar manualmente
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
 
 jobs:
   build-and-scan:
@@ -13,15 +22,15 @@ jobs:
     steps:
       # 1. Checkout del código
       - name: Checkout código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       # 2. Configurar Docker Buildx
       - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       # 3. Login en Docker Hub
       - name: Login a Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -42,7 +51,8 @@ jobs:
 
       # 5. Construir la imagen Docker
       - name: Build imagen Docker
-        uses: docker/build-push-action@v5
+        if: github.event_name != 'schedule'
+        uses: docker/build-push-action@v6 # v6.18.0
         with:
           context: .
           push: false
@@ -50,6 +60,14 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # 5b. Pull imagen de producción para scheduled scans
+      - name: Pull imagen de producción
+        if: github.event_name == 'schedule'
+        run: |
+          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:latest
+          echo "version=latest" >> $GITHUB_OUTPUT
+        id: scheduled_version
 
       # 6. Determinar política de escaneo
       - name: Determinar política de escaneo
@@ -65,11 +83,22 @@ jobs:
             echo "policy=permissive" >> $GITHUB_OUTPUT
           fi
 
-      # 7. Escaneo con Trivy
-      - name: Escanear vulnerabilidades con Trivy
-        uses: aquasecurity/trivy-action@master
+      # 7. Escaneo con Trivy (tabla para reporte primero)
+      - name: Generar reporte de vulnerabilidades
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
+          format: "table"
+          output: "trivy-report.txt"
+          severity: "CRITICAL,HIGH"
+          exit-code: 0
+          ignore-unfixed: true
+
+      # 7b. Escaneo con Trivy (SARIF para Security tab - puede fallar)
+      - name: Escanear vulnerabilidades con Trivy (SARIF)
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # v0.33.1
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
           format: "sarif"
           output: "trivy-results.sarif"
           severity: "CRITICAL,HIGH"
@@ -78,7 +107,7 @@ jobs:
 
       # 8. Subir resultados de Trivy
       - name: Subir resultados de Trivy a GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # v3.27.5
         if: always()
         with:
           sarif_file: "trivy-results.sarif"
@@ -86,25 +115,25 @@ jobs:
 
       # 9. Escaneo con Anchore Grype
       - name: Escanear con Anchore Grype
-        uses: anchore/scan-action@v3
+        uses: anchore/scan-action@1638637db639e0ade3258b51db49a9a137574c3e # v6.5.1
         id: scan
         with:
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ steps.version.outputs.version }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/okta-oidc-una:${{ github.event_name == 'schedule' && 'latest' || steps.version.outputs.version }}
           fail-build: ${{ steps.scan_policy.outputs.fail_build }}
           severity-cutoff: high
           output-format: sarif
 
       # 10. Subir resultados de Anchore
       - name: Subir resultados de Anchore a GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        uses: github/codeql-action/upload-sarif@ea9e4e37992a54ee68a9622e985e60c8e8f12d9f # v3.27.5
+        if: always() && steps.scan.outputs.sarif != ''
         with:
           sarif_file: ${{ steps.scan.outputs.sarif }}
           category: "grype"
 
       # 11a. Push imagen (development/feature branches)
       - name: Push imagen a Docker Hub (development)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6 # v6.18.0
         if: success() && github.event_name == 'push' && github.ref != 'refs/heads/main'
         with:
           context: .
@@ -117,7 +146,7 @@ jobs:
 
       # 11b. Push imagen (main/production)
       - name: Push imagen a Docker Hub (production)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6 # v6.18.0
         if: success() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
           context: .
@@ -145,13 +174,35 @@ jobs:
           echo "- **Policy:** \`${{ steps.scan_policy.outputs.policy }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Details:** Security → Code scanning alerts" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Agregar reporte de vulnerabilidades si existe
+          if [ -f "trivy-report.txt" ]; then
+            echo "### 🔐 Vulnerability Report (CRITICAL & HIGH)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat trivy-report.txt >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "### ℹ️ Build Information" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Author:** \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
+          if [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "- **Scan Type:** 🔄 Scheduled Security Scan" >> $GITHUB_STEP_SUMMARY
+            echo "- **Image:** \`latest\` (production)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- **Author:** \`${{ github.actor }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           if [[ "${{ steps.version.outputs.is_main }}" == "true" ]]; then
-            echo "🚀 **Production build** - Strict security policy applied" >> $GITHUB_STEP_SUMMARY
+            echo "---" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 **Production build** - Strict security policy enabled" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Build will fail if CRITICAL or HIGH vulnerabilities are found**" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📋 Review the vulnerability report above and check **Security → Code scanning alerts** for details" >> $GITHUB_STEP_SUMMARY
           else
             echo "🔧 **Development build** - Permissive security policy" >> $GITHUB_STEP_SUMMARY
           fi
