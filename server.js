@@ -60,6 +60,14 @@ const app = express();
   // Auth router
   app.use(auth(config));
 
+  // Middleware para registrar todas las peticiones
+app.use((req, res, next) => {
+  const log = `[${new Date().toISOString()}] ${req.ip} ${req.method} ${req.url}`;
+  console.log(log);
+  next();
+});
+
+
   // Vistas con Nunjucks
   const viewsPath = path.join(__dirname, "views");
   nunjucks.configure(viewsPath, { autoescape: true, express: app, watch: false, noCache: false });

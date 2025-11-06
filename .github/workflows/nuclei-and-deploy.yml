@@ -13,10 +13,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Nuclei
-        uses: projectdiscovery/nuclei-action@main
-        with:
-          target: "http://${{ secrets.EC2_HOST }}" # IP desde GitHub Secrets
-          templates: "default"
+  run: |
+    nuclei -update-templates
+    nuclei -target http://your-target.com \
+           -t /home/runner/nuclei-templates/ \
+           -o nuclei.log -se nuclei.sarif -irr
 
       - name: Upload nuclei report
         if: always()
