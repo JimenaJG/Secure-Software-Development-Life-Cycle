@@ -51,6 +51,14 @@ app.use(helmet({ contentSecurityPolicy: false }));
 // auth router: /login, /logout, /callback
 app.use(auth(config));
 
+// Middleware para registrar todas las peticiones
+app.use((req, res, next) => {
+  const log = `[${new Date().toISOString()}] ${req.ip} ${req.method} ${req.url}`;
+  console.log(log);
+  next();
+});
+
+
 //Vistas con Nunjucks
 const viewsPath = path.join(__dirname, "views");
 nunjucks.configure(viewsPath, {
