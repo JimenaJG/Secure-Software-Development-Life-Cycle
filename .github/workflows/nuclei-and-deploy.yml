@@ -72,6 +72,6 @@ jobs:
           command_timeout: 300s
           script: |
             cd /home/ubuntu/Secure-Software-Development-Life-Cycle
-            git pull origin development
+            git pull origin develop
             npm install --omit=dev
             pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
