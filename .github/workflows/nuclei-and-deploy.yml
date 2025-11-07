@@ -22,6 +22,7 @@ jobs:
         uses: projectdiscovery/nuclei-action@main
         with:
           target: "http://${{ secrets.EC2_HOST }}"
+          templates: "/home/runner/nuclei-templates/"
           flags: "-severity critical,high,medium -stats"
           github-report: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
