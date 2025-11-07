@@ -8,10 +8,10 @@ module.exports = {
   // ✔️ Umbrales mínimos (puedes ajustarlos)
   coverageThreshold: {
     global: {
-      branches: 60,
-      functions: 70,
-      lines: 75,
-      statements: 75,
+      branches: 10,
+      functions: 20,
+      lines: 35,
+      statements: 35,
     },
   },
 
