@@ -24,7 +24,8 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test:ci": "jest --coverage --runInBand",
     "format": "prettier --write .",
-    "set-secrets": "node secrets/setSecrets.js"
+    "set-secrets": "node secrets/setSecrets.js",
+    "build": "echo 'Running build stage...' && npm install"
   },
   "author": "UNA",
   "license": "MIT",
