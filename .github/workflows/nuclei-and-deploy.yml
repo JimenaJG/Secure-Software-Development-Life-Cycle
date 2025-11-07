@@ -23,7 +23,7 @@ jobs:
         with:
           target: "http://${{ secrets.EC2_HOST }}"
           templates: "/home/runner/nuclei-templates/"
-          flags: "-severity critical,high,medium -stats"
+          flags: "-irr -json -o nuclei-report.json -se nuclei.sarif"
           github-report: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -40,8 +40,9 @@ jobs:
         with:
           name: nuclei-reports
           path: |
-            nuclei.log
+            nuclei-report.json
             nuclei.sarif
+            nuclei.log
 
   deploy:
     needs: scan
@@ -51,14 +52,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2 via SSH
+      - name: Test SSH Connection
         uses: appleboy/ssh-action@v0.1.8
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            echo "✅ Conexión SSH establecida correctamente desde GitHub Actions"
+
+      - name: Deploy to EC2 via SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          command_timeout: 300s
+          script: |
             cd /home/ubuntu/Secure-Software-Development-Life-Cycle
             git pull origin development
-            pnpm install --frozen-lockfile
+            npm install --omit=dev
             pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
