@@ -74,4 +74,4 @@ jobs:
             cd /home/ubuntu/Secure-Software-Development-Life-Cycle
             git pull origin develop
             npm install --omit=dev
-            pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
+            pm2 restart secure-app || pm2 start server.js --name secure-app
