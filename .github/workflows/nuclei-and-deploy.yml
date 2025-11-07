@@ -1,4 +1,4 @@
-name: Nuclei scan & Deploy
+name: 🚀 Deploy & Nuclei Security Scan
 
 on:
   push:
@@ -6,42 +6,74 @@ on:
   workflow_dispatch:
 
 jobs:
-  scan:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run Nuclei
-  run: |
-    nuclei -update-templates
-    nuclei -target http://your-target.com \
-           -t /home/runner/nuclei-templates/ \
-           -o nuclei.log -se nuclei.sarif -irr
-
-      - name: Upload nuclei report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: nuclei-report
-          path: nuclei-report.txt
-
+  # =====================================
+  # DEPLOY A EC2
+  # =====================================
   deploy:
-    needs: scan
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/development' || github.event_name == 'workflow_dispatch'
     steps:
-      - name: Checkout
+      - name:  Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy to EC2 via SSH
+      - name:  Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: ${{ secrets.EC2_HOST }}      # <--- usa el secret EC2_HOST
+          host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}    # <--- tu clave PEM copiada como texto
+          key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd /home/ubuntu/Secure-Software-Development-Life-Cycle
             git pull origin development
-            pnpm install --frozen-lockfile
+            npm install --omit=dev
             pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
+
+  # =====================================
+  # ESCANEO CON NUCLEI (DAST)
+  # =====================================
+  nuclei-scan:
+    name: Run Nuclei Security Scan
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name:  Checkout repository
+        uses: actions/checkout@v4
+
+      #  Esperar que el servidor esté en línea
+      - name:  Wait for EC2 to be ready
+        run: |
+          echo "Esperando que el servidor esté disponible..."
+          for i in {1..10}; do
+            if curl -s "http://${{ secrets.EC2_HOST }}" > /dev/null; then
+              echo " Servidor listo."
+              break
+            fi
+            echo " Esperando 5 segundos..."
+            sleep 5
+          done
+
+      # Ejecutar Nuclei
+      - name:  Run Nuclei Scan
+        uses: projectdiscovery/nuclei-action@main
+        with:
+          target: "http://${{ secrets.EC2_HOST }}"
+          templates: "/home/runner/nuclei-templates/"
+          flags: "-irr -json -o nuclei-report.json -se nuclei.sarif"
+
+      # Convertir el JSON a HTML para visualización
+      - name:  Convert report to HTML
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install nuclei-report
+          nuclei-report -i nuclei-report.json -o nuclei-report.html
+
+      # Subir reportes como artefactos
+      - name:  Upload Nuclei Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuclei-scan-reports
+          path: |
+            nuclei-report.json
+            nuclei-report.html
+            nuclei.sarif
