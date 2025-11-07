@@ -23,9 +23,10 @@ jobs:
         with:
           target: "http://${{ secrets.EC2_HOST }}"
           templates: "/home/runner/nuclei-templates/"
-          flags: "-irr -json -o nuclei-report.json -se nuclei.sarif"
+          flags: "-irr -json-export nuclei-report.json -se nuclei.sarif -o nuclei.log"
           github-report: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
 
       - name: Upload SARIF to GitHub Security
         if: always()
