@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Matriz de Riesgos SSDLC</title>
+  <link rel="stylesheet" href="/static/css/matriz-riesgos.css" />
+</head>
+
+<body>
+
+  <div class="container">
+
+    <header class="header">
+      <h1>Matriz de Riesgos</h1>
+      <p class="subtitle">Sistema de gestión y análisis de riesgos de dependencias</p>
+    </header>
+
+    <section class="doc">
+
+      <div class="intro-card">
+        <h2>Matriz de Riesgos</h2>
+        <p>
+          Este documento lista las librerías que usamos en el proyecto y los riesgos que pueden aparecer
+          si no se configuran correctamente o si presentan vulnerabilidades conocidas.
+        </p>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Cómo leer la tabla</h3>
+          <div class="metrics">
+            <div class="metric-item">
+              <strong>Probabilidad (1–5):</strong>
+              <span>Qué tan probable es que ocurra el riesgo</span>
+            </div>
+            <div class="metric-item">
+              <strong>Impacto (1–5):</strong>
+              <span>Qué tan grave sería si ocurre</span>
+            </div>
+            <div class="metric-item formula">
+              <strong>Riesgo = Probabilidad × Impacto</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <h3>Niveles de riesgo</h3>
+          <div class="risk-levels">
+            <div class="risk-badge badge-bajo">
+              <span class="badge-label">Bajo (1–8)</span>
+              <span class="badge-desc">Riesgo controlado, solo mantener actualizado</span>
+            </div>
+            <div class="risk-badge badge-medio">
+              <span class="badge-label">Medio (9–15)</span>
+              <span class="badge-desc">Requiere atención o buena configuración</span>
+            </div>
+            <div class="risk-badge badge-alto">
+              <span class="badge-label">Alto (16–25)</span>
+              <span class="badge-desc">Riesgo crítico, debe corregirse de inmediato</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <h2>Dependencias críticas</h2>
+        <span class="section-tag">Análisis detallado</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="tabla-doc">
+          <thead>
+            <tr>
+              <th>Librería</th>
+              <th>Versión</th>
+              <th>Para qué la usamos</th>
+              <th>Prob.</th>
+              <th>Imp.</th>
+              <th>Riesgo</th>
+              <th>Qué puede pasar</th>
+              <th>Mitigar</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="row-medio">
+              <td><strong>express</strong></td>
+              <td><code>4.21.2</code></td>
+              <td>Servidor web principal</td>
+              <td>3</td>
+              <td>4</td>
+              <td><span class="badge-pill medio">12</span></td>
+              <td>Endpoints expuestos o inyección de cabeceras</td>
+              <td>Usar Helmet, validar inputs, manejar errores</td>
+            </tr>
+            <tr class="row-alto">
+              <td><strong>express-session</strong></td>
+              <td><code>1.18.2</code></td>
+              <td>Sesiones y cookies</td>
+              <td>4</td>
+              <td>5</td>
+              <td><span class="badge-pill alto">20</span></td>
+              <td>Robo de sesión o cookies inseguras</td>
+              <td>HttpOnly, Secure, SameSite=strict, HTTPS</td>
+            </tr>
+            <tr class="row-medio">
+              <td><strong>nunjucks</strong></td>
+              <td><code>3.2.4</code></td>
+              <td>Plantillas HTML</td>
+              <td>2</td>
+              <td>4</td>
+              <td><span class="badge-pill medio">8</span></td>
+              <td>Inyección de código (SSTI o XSS)</td>
+              <td>Autoescape activo y sanitizar datos</td>
+            </tr>
+            <tr class="row-medio">
+              <td><strong>socket.io</strong></td>
+              <td><code>4.8.1</code></td>
+              <td>Comunicación en tiempo real</td>
+              <td>3</td>
+              <td>4</td>
+              <td><span class="badge-pill medio">12</span></td>
+              <td>Conexiones sin autenticación</td>
+              <td>Validar cada conexión, usar HTTPS/WSS</td>
+            </tr>
+            <tr class="row-medio">
+              <td><strong>lodash</strong></td>
+              <td><code>4.17.21</code></td>
+              <td>Manejo de arrays y objetos</td>
+              <td>3</td>
+              <td>3</td>
+              <td><span class="badge-pill medio">9</span></td>
+              <td>Vulnerabilidades en versiones antiguas</td>
+              <td>Mantener actualizado, ejecutar npm audit</td>
+            </tr>
+            <tr class="row-medio">
+              <td><strong>dotenv</strong></td>
+              <td><code>16.4.5</code></td>
+              <td>Variables de entorno</td>
+              <td>2</td>
+              <td>5</td>
+              <td><span class="badge-pill medio">10</span></td>
+              <td>Exposición de credenciales</td>
+              <td>Agregar .env a .gitignore</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section-header">
+        <h2>Otras dependencias importantes</h2>
+        <span class="section-tag">Resumen</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="tabla-doc tabla-simple">
+          <thead>
+            <tr>
+              <th>Librería</th>
+              <th>Versión</th>
+              <th>Para qué sirve</th>
+              <th>Riesgo</th>
+              <th>Notas</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>@okta/oidc-middleware</td><td><code>5.4.0</code></td><td>Autenticación con Okta</td><td><span class="badge-pill bajo">Bajo</span></td><td>Mantener actualizado</td></tr>
+            <tr><td>express-openid-connect</td><td><code>2.19.2</code></td><td>Login con Auth0/Okta</td><td><span class="badge-pill bajo">Bajo</span></td><td>Validar issuer y secrets</td></tr>
+            <tr><td>csrf-sync</td><td><code>4.2.1</code></td><td>Protección CSRF</td><td><span class="badge-pill bajo">Bajo</span></td><td>Validar tokens CSRF</td></tr>
+            <tr><td>joi</td><td><code>17.13.3</code></td><td>Validación de datos</td><td><span class="badge-pill bajo">Bajo</span></td><td>Validar entradas críticas</td></tr>
+            <tr><td>openid-client</td><td><code>5.7.1</code></td><td>Cliente OpenID</td><td><span class="badge-pill bajo">Bajo</span></td><td>Actualizar y validar issuer</td></tr>
+            <tr><td>debug</td><td><code>4.3.7</code></td><td>Debugging</td><td><span class="badge-pill bajo">Bajo</span></td><td>Desactivar en producción</td></tr>
+            <tr><td>uuid</td><td><code>9.0.1</code></td><td>IDs únicos</td><td><span class="badge-pill bajo">Bajo</span></td><td>Seguro por defecto</td></tr>
+            <tr><td>node-fetch</td><td><code>2.7.0</code></td><td>Peticiones HTTP</td><td><span class="badge-pill bajo">Bajo</span></td><td>Validar URLs</td></tr>
+            <tr><td>helmet</td><td><code>8.1.0</code></td><td>Seguridad Express</td><td><span class="badge-pill bajo">Bajo</span></td><td>Usar siempre</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="analysis-card">
+        <div class="analysis-header">
+          <h2>Resultados de análisis Snyk</h2>
+          <span class="status-badge success">Sin vulnerabilidades</span>
+        </div>
+        <div class="analysis-content">
+          <div class="analysis-item"><strong>Fecha:</strong> Noviembre 2025</div>
+          <div class="analysis-item"><strong>Resultado:</strong> Sin vulnerabilidades críticas</div>
+          <div class="analysis-item"><strong>Antes:</strong> swig, uglify-js, minimist</div>
+          <div class="analysis-item"><strong>Ahora:</strong> Reemplazadas por nunjucks</div>
+        </div>
+      </div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>Mantenimiento continuo</h3>
+          <ul class="checklist">
+            <li>Ejecutar <code>npm audit</code> semanalmente</li>
+            <li>Correr análisis de Snyk mensualmente</li>
+            <li>Revisar dependencias desactualizadas</li>
+            <li>Actualizar Express, Helmet, Lodash y Socket.io</li>
+          </ul>
+        </div>
+
+        <div class="info-card">
+          <h3>Referencias técnicas</h3>
+          <ul class="reference-list">
+            <li><strong>OWASP Top 10</strong> (2025)</li>
+            <li><strong>OWASP ASVS</strong> v5.0</li>
+            <li><strong>Snyk & npm Audit</strong></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== -->
+    <!-- SECCIÓN INTERACTIVA (vacía al inicio) -->
+    <!-- ===================== -->
+    <div class="interactive-section">
+      <div class="section-header">
+        <h2>Agregar riesgos</h2>
+        <span class="section-tag interactive">Tabla dinámica</span>
+      </div>
+
+      <form id="form-riesgo" class="risk-form">
+        <input type="text" id="libreria" placeholder="Librería" required />
+        <input type="text" id="version" placeholder="Versión" required />
+        <input type="text" id="uso" placeholder="Uso" required />
+        <input type="number" id="prob" placeholder="Prob. (1-5)" min="1" max="5" required />
+        <input type="number" id="impacto" placeholder="Impacto (1-5)" min="1" max="5" required />
+        <input type="text" id="mitigar" placeholder="Mitigar riesgo" required />
+        <button type="submit">
+          <span>+</span> Agregar
+        </button>
+      </form>
+
+      <div class="table-wrapper">
+        <table class="tabla-dinamica">
+          <thead>
+            <tr>
+              <th>Librería</th>
+              <th>Versión</th>
+              <th>Uso</th>
+              <th>Prob.</th>
+              <th>Imp.</th>
+              <th>Riesgo</th>
+              <th>Mitigar</th>
+            </tr>
+          </thead>
+          <tbody id="tabla-riesgos"><!-- vacía --></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/static/js/matriz-riesgos.js"></script>
+</body>
+</html>
