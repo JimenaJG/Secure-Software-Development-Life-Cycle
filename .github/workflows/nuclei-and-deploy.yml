@@ -5,6 +5,11 @@ on:
     branches: [ "development", "main" ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  issues: write
+  security-events: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
@@ -12,18 +17,33 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Run Nuclei
+      - name: Run Nuclei Security Scan
+        id: nuclei
         uses: projectdiscovery/nuclei-action@main
         with:
-          target: "http://${{ secrets.EC2_HOST }}" # IP desde GitHub Secrets
-          templates: "default"
+          target: "http://${{ secrets.EC2_HOST }}"
+          templates: "/home/runner/nuclei-templates/"
+          flags: "-irr -json-export nuclei-report.json -se nuclei.sarif -o nuclei.log"
+          github-report: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload nuclei report
+
+      - name: Upload SARIF to GitHub Security
+        if: always()
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: nuclei.sarif
+
+      - name: Upload Nuclei Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: nuclei-report
-          path: nuclei-report.txt
+          name: nuclei-reports
+          path: |
+            nuclei-report.json
+            nuclei.sarif
+            nuclei.log
 
   deploy:
     needs: scan
@@ -33,14 +53,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Test SSH Connection
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "✅ Conexión SSH establecida correctamente desde GitHub Actions"
+
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v0.1.8
         with:
-          host: ${{ secrets.EC2_HOST }}      # <--- usa el secret EC2_HOST
+          host: ${{ secrets.EC2_HOST }}
           username: ubuntu
-          key: ${{ secrets.EC2_SSH_KEY }}    # <--- tu clave PEM copiada como texto
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
+          command_timeout: 300s
           script: |
             cd /home/ubuntu/Secure-Software-Development-Life-Cycle
-            git pull origin development
-            pnpm install --frozen-lockfile
-            pm2 restart secure-sdlc || pm2 start server.js --name secure-sdlc
+            git pull origin develop
+            npm install --omit=dev
+            pm2 restart secure-app || pm2 start server.js --name secure-app
